@@ -273,10 +273,22 @@ commit_overlay() {
     # using ostree's --statoverride when dealing with executable files. See:
     # https://github.com/ostreedev/ostree/issues/2368
     rm -rf "${TMPDIR}/overlay" && (umask 0022 && cp -r "${respath}" "${TMPDIR}/overlay")
+    # Apply statoverrides from a file in the root of the overlay.  ostree
+    # doesn't support comments in statoverride files, but we do.
+    local ovrsrc="${TMPDIR}/overlay/statoverride"
+    local ovrdst="${TMPDIR}/overlay-statoverride"
+    if [ -e "$ovrsrc" ]; then
+        sed -e '/^#/d' "$ovrsrc" > "$ovrdst"
+        # Don't include the statoverride file in the commit
+        rm "$ovrsrc"
+    else
+        >"$ovrdst"
+    fi
     echo -n "Committing ${name}: ${path} ... "
     ostree commit --repo="${tmprepo}" --tree=dir="${TMPDIR}/overlay" -b "${name}" \
         --owner-uid 0 --owner-gid 0 --no-xattrs --no-bindings --parent=none \
-        --mode-ro-executables --timestamp "${git_timestamp}"
+        --mode-ro-executables --timestamp "${git_timestamp}" \
+        --statoverride "${TMPDIR}/overlay-statoverride"
 }
 
 # Implement support for automatic local overrides:
